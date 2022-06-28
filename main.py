@@ -20,21 +20,22 @@ BLACK = (0, 0, 0)
 # Screen information
 SCREEN_SIDE = 800
 SCORE = 0
+TIME = 20
+NB_HONEY_POTS = 7
+NB_WASPS = 3
 
 # Setting up Fonts
-font_game_over = pygame.font.SysFont("Arial", 60)
-game_over = font_game_over.render("Game Over", True, YELLOW)
-
-font_score = pygame.font.SysFont("Arial", 10)
-score = font_score.render(f"Score: {SCORE}", True, BLACK)
-
-font_victory = pygame.font.SysFont("Arial", 60)
-victory = font_victory.render("Bien joué!", True, YELLOW)
+font_end = pygame.font.SysFont("Arial", 60)
+game_over = font_end.render("Game Over", True, YELLOW)
+end_of_timer = font_end.render("Temps écoulé", True, YELLOW)
+victory = font_end.render("Bien joué!", True, YELLOW)
 
 font_honey_pot = pygame.font.SysFont("Arial", 30)
 honey_pot = font_honey_pot.render("Vous avez collecté tous les pots de miel!", True, YELLOW)
 
+font_score = pygame.font.SysFont("Arial", 20)
 
+# Creating the window and its title
 DISPLAYSURF = pygame.display.set_mode((SCREEN_SIDE, SCREEN_SIDE))
 pygame.display.set_caption("Game")
 
@@ -46,13 +47,16 @@ class Wasp(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.center = (random.randint(100, SCREEN_SIDE-100), random.randint(100, SCREEN_SIDE-100))
 
+    def move(self, up_down, right_left):
+        self.rect.move_ip(up_down, right_left)
+
 
 class Bee(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
         self.image = pygame.image.load("Cute_bee.png")
         self.rect = self.image.get_rect()
-        self.rect.center = (400, 200)
+        self.rect.center = (400, 50)
 
     def move(self):
         pressed_keys = pygame.key.get_pressed()
@@ -78,79 +82,88 @@ class Honey(pygame.sprite.Sprite):
         super().__init__()
         self.image = pygame.image.load("Honey_pot.png")
         self.rect = self.image.get_rect()
-        self.rect.center = (random.randint(0, SCREEN_SIDE), random.randint(0, SCREEN_SIDE))
+        self.rect.center = (random.randint(0, SCREEN_SIDE), random.randint(100, SCREEN_SIDE))
 
 
 # Adding Sprites
 B1 = Bee()
-W1 = Wasp()
-W2 = Wasp()
-W3 = Wasp()
-H1 = Honey()
-H2 = Honey()
-H3 = Honey()
-H4 = Honey()
-H5 = Honey()
-H6 = Honey()
-H7 = Honey()
+
 
 # Putting sprites into Groups
 enemies = pygame.sprite.Group()
-enemies.add(W1)
-enemies.add(W2)
-enemies.add(W3)
+for i in range(NB_WASPS):
+    enemies.add(Wasp())
+
 honeys = pygame.sprite.Group()
-honeys.add(H1)
-honeys.add(H2)
-honeys.add(H3)
-honeys.add(H4)
-honeys.add(H5)
-honeys.add(H6)
-honeys.add(H7)
+for i in range(NB_HONEY_POTS):
+    honeys.add(Honey())
+
 all_sprites = pygame.sprite.Group()
 all_sprites.add(B1)
-all_sprites.add(W1)
-all_sprites.add(W2)
-all_sprites.add(W3)
-all_sprites.add(H1)
-all_sprites.add(H2)
-all_sprites.add(H3)
-all_sprites.add(H4)
-all_sprites.add(H5)
-all_sprites.add(H6)
-all_sprites.add(H7)
+
+for elm in enemies:
+    all_sprites.add(elm)
+
+for elm in honeys:
+    all_sprites.add(elm)
+
 
 # Adding new custom events
 END_OF_GAME = pygame.USEREVENT + 1
-pygame.time.set_timer(END_OF_GAME, 25000)
+WASPS_MOVE = pygame.USEREVENT + 2
 
+pygame.time.set_timer(END_OF_GAME, 1000)
+pygame.time.set_timer(WASPS_MOVE, 500)
+
+up_down = random.randint(-3, 3)
+right_left = random.randint(-3, 3)
 # Game Loop
 while True:
 
+    if TIME == 0:
+        DISPLAYSURF.fill(BLACK)
+        DISPLAYSURF.blit(end_of_timer, (250, 360))
+        pygame.display.update()
+        for entity in all_sprites:
+            entity.kill()
+        time.sleep(2)
+        pygame.quit()
+        sys.exit()
     for event in pygame.event.get():
         if event.type == END_OF_GAME:
-            pygame.quit()
-            sys.exit()
+            TIME -= 1
+
+        if event.type == WASPS_MOVE:
+            up_down = random.randint(-5, 5)
+            right_left = random.randint(-5, 5)
+
 
         if event.type == QUIT:
             pygame.quit()
             sys.exit()
 
     if pygame.sprite.spritecollideany(B1, honeys):
-        pygame.sprite.spritecollideany(B1, honeys).kill()
         SCORE += 1
-
+        pygame.sprite.spritecollideany(B1, honeys).kill()
 
     # Moves and Re-draws all sprites
     DISPLAYSURF.fill(YELLOW)
+    B1.move()
+    for entity in enemies:
+        entity.move(up_down, right_left)
     for entity in all_sprites:
         DISPLAYSURF.blit(entity.image, entity.rect)
-    B1.move()
+
+    score = font_score.render(f"Score: {SCORE}", True, BLACK)
+    time_left = font_score.render(f"Temps: {TIME}", True, BLACK)
+    DISPLAYSURF.blit(score, (700, 30))
+    DISPLAYSURF.blit(time_left, (10, 30))
 
     # To be run if collision occurs between Bee and Wasp
     if pygame.sprite.spritecollideany(B1, enemies):
         DISPLAYSURF.fill(BLACK)
         DISPLAYSURF.blit(game_over, (250, 360))
+        pygame.mixer.Sound('bzzzz.wav').play()
         pygame.display.update()
         for entity in all_sprites:
             entity.kill()
@@ -168,6 +181,7 @@ while True:
         time.sleep(3)
         pygame.quit()
         sys.exit()
+
     pygame.display.update()
     FramePerSec.tick(FPS)
 
